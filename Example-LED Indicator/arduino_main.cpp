@@ -13,8 +13,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#include "model_settings.h"
+#include "main_functions.h"
 
-const char* kCategoryLabels[kCategoryCount] = {
-    "Glove","Null",
-};
+// Arduino automatically calls the setup() and loop() functions in a sketch, so
+// where other systems need their own main routine in this file, it can be left
+// empty.

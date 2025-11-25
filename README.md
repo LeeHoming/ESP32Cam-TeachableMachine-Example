@@ -6,6 +6,7 @@ This repository hosts two Arduino sketches that cover the full workflow for Teac
 | --- | --- |
 | `GetImageCamServer` | Wi‑Fi camera server with a browser UI to preview the live feed, periodically capture 96×96 frames, and download them as a ZIP file for TM training. |
 | `InferenceCam` | Runs a TM/TensorFlow Lite Micro model on the device using the same 96×96 grayscale preprocessing pipeline. |
+| `Example-LED Indicator` | Same as `InferenceCam` but adds a WS2812B indicator on GPIO48 to show the top result (red/blue). |
 
 Both sketches share the same `board_config.h`/`camera_pins.h`, so you can switch boards (ESP32S3‑EYE, ESP‑EYE, AI Thinker, etc.) by toggling the corresponding `#define` in a single place.
 
@@ -14,8 +15,9 @@ Both sketches share the same `board_config.h`/`camera_pins.h`, so you can switch
 ## Repository Layout
 
 ```
-GetImageCamServer/   # Camera HTTP server + web UI for dataset capture
-InferenceCam/        # On-device inference sketch
+GetImageCamServer/      # Camera HTTP server + web UI for dataset capture
+InferenceCam/           # On-device inference sketch
+Example-LED Indicator/  # Inference + WS2812B indicator (ESP32S3 GPIO48)
 ```
 
 Each folder is a standalone Arduino project; open them separately inside the IDE.
@@ -39,7 +41,7 @@ Install the following in the Arduino IDE:
 
 1. **Data collection** – Flash `GetImageCamServer`, open the built-in web UI, and record a dataset. All captured frames are automatically resized to **96×96** and converted to grayscale before download, matching TM’s expected input.
 2. **Model training** – Upload the ZIP to [Teachable Machine](https://teachablemachine.withgoogle.com/) (Image Project → Standard image model) and export an **int8 quantized** TensorFlow Lite model.
-3. **Deployment** – Convert the `.tflite` file into C arrays and replace `InferenceCam/person_detect_model_data.cpp/.h`, then flash `InferenceCam` to run the model on-device.
+3. **Deployment** – Convert the `.tflite` file into C arrays and replace `InferenceCam/person_detect_model_data.cpp/.h` (or the same files inside `Example-LED Indicator/`), then flash to run the model on-device.
 
 ---
 
@@ -103,6 +105,30 @@ This sketch runs the trained TM model locally using EloquentTinyML + tflm_esp32.
 
 ---
 
+## Example-LED Indicator
+
+Identical to `InferenceCam`, but it also drives a single WS2812B LED on **ESP32S3 GPIO48** to reflect the top prediction: class 0 -> red, other -> blue.
+
+1. **Extra dependency** – Library Manager → install **Adafruit NeoPixel**.
+2. **Board selection** – Same `board_config.h` toggle as `InferenceCam`.
+3. **Load your model** – Replace `person_detect_model_data.cpp` and update `model_settings.*` exactly as described below.
+4. **Flash & test** – Open Serial for scores; watch the LED change color after each inference.
+
+---
+
+## 使用自己的模型（最简单流程）
+
+1. 在 Teachable Machine 训练好后，点击 **Export Model → TensorFlow Lite → Quantized int8** 下载 `.tflite`。
+2. 把模型转成 C 数组（示例命令，macOS/Linux 终端）：
+   ```bash
+   xxd -i your_model.tflite > person_detect_model_data.cpp
+   ```
+   直接用生成的文件替换 `InferenceCam/person_detect_model_data.cpp`（或 `Example-LED Indicator/person_detect_model_data.cpp`）。如果数组名字不是 `g_person_detect_model_data`/`g_person_detect_model_data_len`，同步更新同目录下的 `.h`。
+3. 打开同目录的 `model_settings.cpp/.h`，把类别数量和标签改成你在 TM 中的类名，并调整输入尺寸/通道数（默认 96×96×1 保持不变即可）。
+4. 编译并烧录。串口会打印新模型的分数，`Example-LED Indicator` 还会用 LED 显示结果。
+
+---
+
 ## Tips & Troubleshooting
 
 | Issue | Cause / Fix |
@@ -122,4 +148,3 @@ This sketch runs the trained TM model locally using EloquentTinyML + tflm_esp32.
 - If you need different resolutions, adjust both sketches’ sensor setup (`GetImageCamServer.ino` and `InferenceCam.ino`) and the web canvas/TM settings accordingly.
 
 This workflow lets you iterate quickly: capture data with the ESP32, train in TM, drop the new model into `InferenceCam`, and you’re back on hardware in minutes. Happy hacking!
-
